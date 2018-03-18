@@ -33,6 +33,7 @@ var (
 var (
 	consumer = flag.Bool("c", true, "Act as a consumer")
 	producer = flag.Bool("p", false, "Act as a producer")
+	durable  = flag.Bool("d", true, "Declare exchange as durable")
 
 	// RabbitMQ related
 	uri          = flag.String("u", "amqp://guest:guest@localhost:5672/", "AMQP URI")
@@ -103,6 +104,7 @@ func startConsumer(done chan error) {
 		*queue,
 		*routingKey,
 		*consumerTag,
+		*durable,
 	)
 
 	if err != nil {
@@ -119,16 +121,22 @@ func startProducer(done chan error, body *string, messageCount, interval int) {
 		*exchangeType,
 		*routingKey,
 		*consumerTag,
-		true,
+		*reliable,
+		*durable,
 	)
 
 	if err != nil {
 		log.Fatalf("Error while starting producer : %s", err)
 	}
 
+	pub := publish
+	if *exchangeType == "x-modulus-hash" {
+		pub = publishSharded
+	}
+
 	var i int = 1
 	for {
-		publish(p, body, i)
+		pub(p, body, i)
 
 		i++
 		if messageCount != 0 && i > messageCount {
@@ -139,6 +147,18 @@ func startProducer(done chan error, body *string, messageCount, interval int) {
 	}
 
 	done <- nil
+}
+
+func publishSharded(p *Producer, body *string, i int) {
+	// Generate SHA for body
+	hasher := sha1.New()
+	hasher.Write([]byte(*body + string(i)))
+	sha := base64.URLEncoding.EncodeToString(hasher.Sum(nil))
+
+	// String to publish
+	bodyString := fmt.Sprintf("body: %s - hash: %s", *body, sha)
+
+	p.Publish(*exchange, sha[:8], bodyString)
 }
 
 func publish(p *Producer, body *string, i int) {

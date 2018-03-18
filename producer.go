@@ -2,8 +2,9 @@ package main
 
 import (
 	"fmt"
-	"github.com/streadway/amqp"
 	"log"
+
+	"github.com/streadway/amqp"
 )
 
 type Producer struct {
@@ -13,7 +14,7 @@ type Producer struct {
 	done       chan error
 }
 
-func NewProducer(amqpURI, exchange, exchangeType, key, ctag string, reliable bool) (*Producer, error) {
+func NewProducer(amqpURI, exchange, exchangeType, key, ctag string, reliable bool, durable bool) (*Producer, error) {
 	p := &Producer{
 		connection: nil,
 		channel:    nil,
@@ -39,7 +40,7 @@ func NewProducer(amqpURI, exchange, exchangeType, key, ctag string, reliable boo
 	if err := p.channel.ExchangeDeclare(
 		exchange,     // name
 		exchangeType, // type
-		true,         // durable
+		durable,      // durable
 		false,        // auto-deleted
 		false,        // internal
 		false,        // noWait
